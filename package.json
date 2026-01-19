@@ -1,0 +1,38 @@
+{
+  "name": "panel-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/app.js",
+    "prisma:gen": "npx prisma generate",
+    "prisma:push": "npx prisma db push --schema ./prisma/schema.prisma",
+    "db:init": "node init_database.js",
+    "admin:reset": "node update_admin_password.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "axios": "^1.11.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "geoip-lite": "^1.4.10",
+    "ioredis": "^5.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "pg": "^8.16.3",
+    "prisma": "^6.11.1",
+    "ua-parser-js": "^2.0.4"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^10.0.0"
+  }
+}

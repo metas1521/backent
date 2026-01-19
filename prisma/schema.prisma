@@ -1,0 +1,247 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Usuario {
+  id              Int       @id @default(autoincrement())
+  nombre          String
+  username        String   @unique
+  user_id         String?  // ID de Telegram del usuario
+  password        String
+  fechaAlta       DateTime @default(now())
+  fechaExpiracion DateTime?
+  creditos        Int      @default(0)
+  montoPagado     Float    @default(0)
+  nivelAcceso     NivelAcceso @relation(fields: [nivelAccesoId], references: [id])
+  nivelAccesoId   Int
+  comandos        UsuarioComando[]
+  activo          Boolean  @default(false)  // Por defecto INACTIVO - requiere activación del admin
+  pagos           Pago[]
+  
+  // Nuevos campos para el sistema de activación del bot
+  tipo            String   @default("web_panel") // "web_panel" o "telegram_bot"
+  fecha_registro  DateTime @default(now())
+  tipo_activacion String?  // 'plan' o 'credits'
+  plan_activo     String?  // 'basico', 'vip', 'doxer', 'hacker'
+  creditos_disponibles Int      @default(0)  // Campo requerido para sistema de créditos
+  consultas_usadas  Int      @default(0) // Contador para planes por tiempo
+  apiTokens      ApiToken[]
+}
+
+model Pago {
+  id         Int      @id @default(autoincrement())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int
+  monto      Float
+  fechaPago  DateTime @default(now())
+  tipo       String   // mensual, 2 meses, ilimitado, etc.
+  estado     String   @default("pendiente") // pendiente, pagado, vencido, anulado
+  fechaInicio      DateTime?
+  fechaExpiracion  DateTime?
+  nota       String?
+  creditosOtorgados Int @default(0)
+}
+
+model ApiToken {
+  id            Int       @id @default(autoincrement())
+  usuario       Usuario?  @relation(fields: [usuarioId], references: [id])
+  usuarioId     Int?
+  grupoId       Int?
+  token         String
+  modo          String    // plan | creditos
+  estado        String    @default("activo")
+  limiteDiario  Int?      // null o 0 = sin límite
+  fechaInicio   DateTime  @default(now())
+  fechaExp      DateTime?
+  creditos      Int?      @default(0)
+  notas         String?
+  usosHoy       Int       @default(0)
+  ultimoUso     DateTime?
+  comandos      ApiTokenComando[]
+}
+
+model ApiTokenComando {
+  id          Int      @id @default(autoincrement())
+  apiTokenId  Int
+  comandoId   Int
+  permitido   Boolean  @default(true)
+  apiToken    ApiToken @relation(fields: [apiTokenId], references: [id])
+  comando     Comando  @relation(fields: [comandoId], references: [id])
+
+  @@unique([apiTokenId, comandoId])
+}
+
+model Comando {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  // Comando canónico (original). Si no se define, se usa nombre.
+  canonico    String?
+  // Lista de alias (abreviaturas) en formato JSON.
+  aliases     Json?
+  descripcion String?
+  categoria   String?  @default("General") // Categoría del comando (RENIEC, Telefónicos, Vehiculares, etc.)
+  activo      Boolean  @default(true) // Si el comando está activo o desactivado
+  nivelMinimo NivelAcceso @relation("NivelMinimoComando", fields: [nivelMinimoId], references: [id])
+  nivelMinimoId Int
+  usuarios    UsuarioComando[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  apiTokens   ApiTokenComando[]
+}
+
+model UsuarioComando {
+  id         Int      @id @default(autoincrement())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int
+  comando    Comando  @relation(fields: [comandoId], references: [id])
+  comandoId  Int
+}
+
+model NivelAcceso {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  descripcion String?
+  usuarios    Usuario[]
+  comandos    Comando[] @relation("NivelMinimoComando")
+}
+
+model Plan {
+  id        Int     @id @default(autoincrement())
+  nombre    String  @unique
+  precio    Float
+  duracion  Int     // en días
+  tipo      String  // VIP, DOXER, HACKER, etc.
+}
+
+// ===== Seguridad básica: logs y bloqueo de IPs =====
+model SecurityLog {
+  id         Int      @id @default(autoincrement())
+  ip         String
+  path       String
+  method     String
+  userAgent  String?
+  reason     String?
+  severity   String?  @default("low")
+  country    String?  // geolocalización
+  city       String?
+  isp        String?
+  timezone   String?
+  createdAt  DateTime @default(now())
+}
+
+model BlockedIP {
+  id        Int      @id @default(autoincrement())
+  ip        String   @unique
+  reason    String?
+  until     DateTime?
+  createdAt DateTime @default(now())
+}
+
+// ==== Nuevos modelos para aislamiento por CQ, canales y ledger ====
+
+enum Canal {
+  WEB
+  TG
+}
+
+enum EstadoCQ {
+  PENDIENTE
+  ENVIADA
+  OK
+  FAIL
+  TIMEOUT
+}
+
+model UsuarioWeb {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String
+  cuw       String    @unique // Código de Usuario Web visible (ej. W-9F3K2)
+  creadoEn  DateTime  @default(now())
+
+  consultas Consulta[]
+  movimientos Ledger[]
+}
+
+model UsuarioTelegram {
+  id         Int       @id @default(autoincrement())
+  telegramId String    @unique
+  username   String?
+  cut        String    @unique // Código de Usuario TG visible (ej. T-7X9M4)
+  creadoEn   DateTime  @default(now())
+
+  consultas  Consulta[]
+  movimientos Ledger[]
+}
+
+model Consulta {
+  cq            String    @id @default(cuid()) // ID único por consulta
+  canal         Canal
+  userWebId     Int?
+  userTGId      Int?
+  userWeb       UsuarioWeb?     @relation(fields: [userWebId], references: [id])
+  userTG        UsuarioTelegram? @relation(fields: [userTGId], references: [id])
+  sc            String?  // Identificador de sesión/hilo opcional
+  botObjetivo   String?
+  messageIdEnviado String?
+  payload       String
+  resultText    String?
+  estado        EstadoCQ @default(PENDIENTE)
+  costo         Int      @default(1)
+  latenciaMs    Int?
+  creadaEn      DateTime @default(now())
+  actualizadaEn DateTime @updatedAt
+
+  movimientos   Ledger[]
+}
+
+model Ledger {
+  id         Int       @id @default(autoincrement())
+  canal      Canal
+  amount     Int       // positivo: abono, negativo: cargo/reserva
+  concepto   String
+  creadaEn   DateTime  @default(now())
+
+  // Referencias a usuario por canal (una u otra)
+  userWebId  Int?
+  userTGId   Int?
+  userWeb    UsuarioWeb?     @relation(fields: [userWebId], references: [id])
+  userTG     UsuarioTelegram? @relation(fields: [userTGId], references: [id])
+
+  // Referencia opcional a la consulta
+  cq         String?
+  consulta   Consulta?  @relation(fields: [cq], references: [cq], onDelete: SetNull)
+}
+
+// ==== Nuevo modelo para usuarios web con funcionalidad completa ====
+model WebUser {
+  id                    Int       @id @default(autoincrement())
+  username              String    @unique
+  email                 String    @unique
+  password              String
+  creditos_disponibles  Int       @default(0)
+  bot_activado          Boolean   @default(false)
+  estado                String    @default("activo")
+  fecha_registro        DateTime  @default(now())
+  ultimo_acceso         DateTime?
+  sesiones_activas      Int       @default(0)
+  plan_tipo             String    @default("basico")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // ==== NUEVOS CAMPOS PARA SISTEMA DE PLANES ====
+  tipo_activacion       String?   // 'plan' o 'credits'
+  consultas_usadas      Int       @default(0) // Contador para planes por tiempo
+}
