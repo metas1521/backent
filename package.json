@@ -6,6 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/app.js",
+    "dev": "node src/app.js",
+    "keep-alive": "node keep_alive.js",
+    "start-with-keepalive": "node keep_alive.js & npm start",
     "prisma:gen": "npx prisma generate",
     "prisma:push": "npx prisma db push --schema ./prisma/schema.prisma",
     "db:init": "node init_database.js",

@@ -31,7 +31,7 @@ const parseOrigins = (val) => (val || '')
   .filter(Boolean);
 const allowedOrigins = parseOrigins(process.env.ALLOWED_ORIGINS) || [];
 const defaultOrigins = ['http://localhost:3000', 'http://localhost:4173', 'http://localhost:5175'].map(normalizeOrigin);
-const mandatoryOrigins = ['https://panel.ghoscloud.org'].map(normalizeOrigin);
+const mandatoryOrigins = ['https://workspace.metalogo703.replit.dev'].map(normalizeOrigin);
 const origins = Array.from(new Set([...mandatoryOrigins, ...defaultOrigins, ...allowedOrigins])).filter(Boolean);
 
 const corsOptions = {
